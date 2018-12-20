@@ -1,8 +1,15 @@
 # -*- coding:utf-8-*-
 from wechatpy.utils import check_signature
 from wechatpy.exceptions import InvalidSignatureException
-from django.http import HttpResponse
 from wechatpy import WeChatClient
+from wechatpy import parse_message #解析 XML 消息
+from wechatpy.replies import TextReply, create_reply #响应事件
+from wechatpy.replies import ImageReply
+from wechatpy.replies import VoiceReply
+from wechatpy.replies import VideoReply
+from wechatpy.replies import MusicReply
+from wechatpy.replies import ArticlesReply
+from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
 token = 'helloworld'
@@ -19,7 +26,73 @@ def handle_wx(request):
         except InvalidSignatureException:
             echo_str = '错误的请求'
         response = HttpResponse(echo_str)
+        # client = WeChatClient("wx058a1e6adf42dede", "d4631adb81c598c1f9acddfb4bc2ba10")
+        # menu = client.menu.get()
+        # print(menu)
         return response
+    elif request.method == 'POST':
+        xml = request.body
+        msg = parse_message(xml)
+        openid = msg.source
+        try:
+            if msg.type == 'text':
+                    reply = TextReply(content=msg.content, message=msg)
+                    print(msg.content)                    
+                    return HttpResponse(reply.render())
+            elif msg.type == 'image':
+                    print(msg.media_id)
+                    reply = ImageReply(media_id=msg.media_id, message=msg)
+                    return HttpResponse(reply.render())
+            elif msg.type == 'voice':
+                    print(msg.media_id)
+                    reply = VoiceReply(media_id=msg.media_id, message=msg)
+                    return HttpResponse(reply.render())
+            elif msg.type == 'video':
+                    print(msg)
+                    reply = VideoReply(media_id=msg.media_id, thumb_media_id=msg.thumb_media_id, title='title', description='description', message=msg)
+                    print(reply)
+                    print(msg.media_id)
+                    return HttpResponse(reply.render())
+            elif msg.type == 'music':
+                    print(msg.thumb_media_id, msg.title, msg.description)
+                    reply = MusicReply(thumb_media_id=msg.thumb_media_id, title='title', description='description', music_url=msg.music_url, hq_music_url=msg.hq_music_url, message=msg)
+                    return HttpResponse(reply.render())
+            # elif msg.type == 'news':
+            #         reply = ArticlesReply(message=msg, articles=[
+            #             {
+            #                 'title': u'标题1',
+            #                 'description': u'描述1',
+            #                 'url': u'http://www.qq.com',
+            #             },
+            #             {
+            #                 'title': u'标题2',
+            #                 'description': u'描述2',
+            #                 'url': u'http://www.qq.com',
+            #                 'image': 'http://img.qq.com/1.png',  
+            #             },
+            #         ])
+            #         # 继续添加
+            #         reply.add_article({
+            #             'title': u'标题3',
+            #             'description': u'描述3',
+            #             'url': u'http://www.qq.com',
+            #         })
+            #         r_xml = reply.render()
+            #         return HttpResponse(r_xml)
+            elif msg.type == 'event':
+                    push = ScanCodeWaitMsgEvent(msg) 
+                    #获取二维码信息，字符串
+                    content = msg.scan_result
+                    print(content) 
+                    # 如何处理，自行处理，回复一段文本或者图文
+                    reply = TextReply(content="Someting", message=msg)
+                    r_xml = reply.render()
+                    return HttpResponse(r_xml)
+            #pass
+        except Exception as e:
+            print("Exception:", e)
+            return "success"
+    return HttpResponse('ok')
 
 #自定义菜单的创建接口
 # 1、自定义菜单最多包括3个一级菜单，每个一级菜单最多包含5个二级菜单。 3*5=15
@@ -49,11 +122,11 @@ def create_menu(request):
         "button": [
             {
                 "name": "扫码", 
-                "key": "V1001_TODAY_MUSIC", 
+                "key": "scan", 
                 "sub_button": [ 
                     {   
                         "type": "scancode_push", 
-                        "name": "扫码推事件", 
+                        "name": "扫码二维码", 
                         "key": "V1001_1",
                         "sub_button": [ ]
                     },
@@ -61,6 +134,13 @@ def create_menu(request):
                         "type": "scancode_waitmsg", 
                         "name": "扫码带提示", 
                         "key": "V1001_2",
+                        "sub_button": [ ]
+                    },
+                    {   
+                        "type": "view", 
+                        "name": "百度", 
+                        "url": "http://www.baidu.com",
+                        "key": "V1001_1",
                         "sub_button": [ ]
                     }
                 ]
@@ -104,4 +184,5 @@ def create_menu(request):
         #     "client_platform_type": "2"
         # }
     })
+
     return HttpResponse('ok')
